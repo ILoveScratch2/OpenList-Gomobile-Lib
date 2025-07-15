@@ -30,13 +30,13 @@ jobs:
 
       - name: Make scripts executable
         run: |
-          cd openlib/scripts
+          cd OpenList-Gomobile-Lib/scripts
           chmod +x *.sh
 
       - name: Set target version
         run: |
           if [ "${{ github.event.inputs.openlist_version }}" = "latest" ]; then
-            cd openlib/scripts
+            cd OpenList-Gomobile-Lib/scripts
             ./check_openlist_update.sh
             TARGET_VERSION="${{ env.openlist_version }}"
           else
@@ -46,7 +46,7 @@ jobs:
 
       - name: Download OpenList source
         run: |
-          cd openlib/scripts
+          cd OpenList-Gomobile-Lib/scripts
           # 修改脚本以支持指定版本
           if [ "${{ env.TARGET_VERSION }}" != "" ]; then
             sed -i "s/TAG_NAME=\$(git.*$/TAG_NAME=\"${{ env.TARGET_VERSION }}\"/" init_openlist.sh
@@ -55,7 +55,7 @@ jobs:
 
       - name: Build OpenList
         run: |
-          cd openlib/scripts
+          cd OpenList-Gomobile-Lib/scripts
           ./build_openlist.sh
 
       - name: Get build info
@@ -69,7 +69,7 @@ jobs:
 
       - name: Create build archive
         run: |
-          cd openlib
+          cd OpenList-Gomobile-Lib
           if [ -d "build" ]; then
             tar -czf openlist-manual-build-${{ env.TARGET_VERSION }}.tar.gz build/
             zip -r openlist-manual-build-${{ env.TARGET_VERSION }}.zip build/
@@ -80,9 +80,9 @@ jobs:
         with:
           name: openlist-manual-build-${{ env.TARGET_VERSION }}
           path: |
-            openlib/build/
-            openlib/*.tar.gz
-            openlib/*.zip
+            OpenList-Gomobile-Lib/build/
+            OpenList-Gomobile-Lib/*.tar.gz
+            OpenList-Gomobile-Lib/*.zip
 
       - name: Create Release
         if: github.event.inputs.create_release == 'true'
@@ -99,7 +99,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            openlib/*.tar.gz
-            openlib/*.zip
+            OpenList-Gomobile-Lib/*.tar.gz
+            OpenList-Gomobile-Lib/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

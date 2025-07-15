@@ -9,7 +9,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      VERSION_FILE: ${{ github.workspace }}/openlib/openlist_version
+      VERSION_FILE: ${{ github.workspace }}/OpenList-Gomobile-Lib/openlist_version
     
     steps:
       - name: Checkout repository
@@ -25,12 +25,12 @@ jobs:
 
       - name: Make scripts executable
         run: |
-          cd openlib/scripts
+          cd OpenList-Gomobile-Lib/scripts
           chmod +x *.sh
 
       - name: Check for OpenList updates
         run: |
-          cd openlib/scripts
+          cd OpenList-Gomobile-Lib/scripts
           ./check_openlist_update.sh
         env:
           VERSION_FILE: ${{ env.VERSION_FILE }}
@@ -44,7 +44,7 @@ jobs:
             echo "Update available, processing..."
             
             # Download and build OpenList
-            cd openlib/scripts
+            cd OpenList-Gomobile-Lib/scripts
             ./init_openlist.sh
             ./build_openlist.sh
             
@@ -53,14 +53,14 @@ jobs:
             
             # Update changelog
             CURRENT_DATE=$(date '+%Y-%m-%d %H:%M')
-            echo "[自动同步OpenList] ${{ env.openlist_version }} - ${CURRENT_DATE}" > openlib/CHANGELOG.md
+            echo "[自动同步OpenList] ${{ env.openlist_version }} - ${CURRENT_DATE}" > OpenList-Gomobile-Lib/CHANGELOG.md
             
             # Configure git
             git config user.name "ilovescratch github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             
             # Commit changes
-            git add openlib/
+            git add OpenList-Gomobile-Lib/
             git commit -m "Auto sync OpenList to ${{ env.openlist_version }}"
             git push
             
