@@ -1,0 +1,77 @@
+name: Sync OpenList
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 每日凌晨2点执行
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      VERSION_FILE: ${{ github.workspace }}/openlib/openlist_version
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Make scripts executable
+        run: |
+          cd openlib/scripts
+          chmod +x *.sh
+
+      - name: Check for OpenList updates
+        run: |
+          cd openlib/scripts
+          ./check_openlist_update.sh
+        env:
+          VERSION_FILE: ${{ env.VERSION_FILE }}
+
+      - name: Process update if available
+        run: |
+          echo "openlist_version=${{ env.openlist_version }}"
+          echo "openlist_update=${{ env.openlist_update }}"
+          
+          if [ "${{ env.openlist_update }}" = "1" ]; then
+            echo "Update available, processing..."
+            
+            # Download and build OpenList
+            cd openlib/scripts
+            ./init_openlist.sh
+            ./build_openlist.sh
+            
+            # Update version file
+            echo "${{ env.openlist_version }}" > ${{ env.VERSION_FILE }}
+            
+            # Update changelog
+            CURRENT_DATE=$(date '+%Y-%m-%d %H:%M')
+            echo "[自动同步OpenList] ${{ env.openlist_version }} - ${CURRENT_DATE}" > openlib/CHANGELOG.md
+            
+            # Configure git
+            git config user.name "ilovescratch github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            # Commit changes
+            git add openlib/
+            git commit -m "Auto sync OpenList to ${{ env.openlist_version }}"
+            git push
+            
+            echo "Changes committed successfully"
+          else
+            echo "No update needed"
+          fi
+
+      - name: Trigger build and release
+        if: env.openlist_update == '1'
+        run: |
+          gh workflow run build_and_release.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

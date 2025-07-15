@@ -1,0 +1,105 @@
+name: Manual Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      openlist_version:
+        description: 'OpenList version to build (e.g., v3.25.1)'
+        required: false
+        default: 'latest'
+      create_release:
+        description: 'Create a release'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  manual-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Make scripts executable
+        run: |
+          cd openlib/scripts
+          chmod +x *.sh
+
+      - name: Set target version
+        run: |
+          if [ "${{ github.event.inputs.openlist_version }}" = "latest" ]; then
+            cd openlib/scripts
+            ./check_openlist_update.sh
+            TARGET_VERSION="${{ env.openlist_version }}"
+          else
+            TARGET_VERSION="${{ github.event.inputs.openlist_version }}"
+          fi
+          echo "TARGET_VERSION=${TARGET_VERSION}" >> $GITHUB_ENV
+
+      - name: Download OpenList source
+        run: |
+          cd openlib/scripts
+          # 修改脚本以支持指定版本
+          if [ "${{ env.TARGET_VERSION }}" != "" ]; then
+            sed -i "s/TAG_NAME=\$(git.*$/TAG_NAME=\"${{ env.TARGET_VERSION }}\"/" init_openlist.sh
+          fi
+          ./init_openlist.sh
+
+      - name: Build OpenList
+        run: |
+          cd openlib/scripts
+          ./build_openlist.sh
+
+      - name: Get build info
+        run: |
+          CURRENT_DATE=$(date '+%Y-%m-%d %H:%M')
+          RELEASE_TAG="${CURRENT_DATE// /_}_Manual_Build"
+          RELEASE_TITLE="${CURRENT_DATE} Manual Build"
+          
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
+          echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_ENV
+
+      - name: Create build archive
+        run: |
+          cd openlib
+          if [ -d "build" ]; then
+            tar -czf openlist-manual-build-${{ env.TARGET_VERSION }}.tar.gz build/
+            zip -r openlist-manual-build-${{ env.TARGET_VERSION }}.zip build/
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openlist-manual-build-${{ env.TARGET_VERSION }}
+          path: |
+            openlib/build/
+            openlib/*.tar.gz
+            openlib/*.zip
+
+      - name: Create Release
+        if: github.event.inputs.create_release == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TITLE }}
+          body: |
+            手动构建OpenList库文件
+            
+            **OpenList版本**: ${{ env.TARGET_VERSION }}
+            **构建时间**: ${{ env.RELEASE_TITLE }}
+            **构建类型**: 手动触发
+          draft: false
+          prerelease: false
+          files: |
+            openlib/*.tar.gz
+            openlib/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

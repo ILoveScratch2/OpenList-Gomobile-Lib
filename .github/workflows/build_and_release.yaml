@@ -1,0 +1,87 @@
+name: Build and Release
+
+on:
+  workflow_dispatch: # 允许手动触发
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'openlib/openlist_version'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Make scripts executable
+        run: |
+          cd openlib/scripts
+          chmod +x *.sh
+
+      - name: Download OpenList source
+        run: |
+          cd openlib/scripts
+          ./init_openlist.sh
+
+      - name: Build OpenList
+        run: |
+          cd openlib/scripts
+          ./build_openlist.sh
+
+      - name: Get version info
+        run: |
+          OPENLIST_VERSION=$(cat openlib/openlist_version)
+          CURRENT_DATE=$(date '+%Y-%m-%d %H:%M')
+          RELEASE_TAG="${CURRENT_DATE// /_}_Build_Lib"
+          RELEASE_TITLE="${CURRENT_DATE} Build Lib"
+          
+          echo "OPENLIST_VERSION=${OPENLIST_VERSION}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
+          echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_ENV
+
+      - name: Create build archive
+        run: |
+          cd openlib
+          if [ -d "build" ]; then
+            tar -czf openlist-build-${{ env.OPENLIST_VERSION }}.tar.gz build/
+            zip -r openlist-build-${{ env.OPENLIST_VERSION }}.zip build/
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openlist-build-${{ env.OPENLIST_VERSION }}
+          path: |
+            openlib/build/
+            openlib/*.tar.gz
+            openlib/*.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TITLE }}
+          body: |
+            自动构建OpenList库文件
+            
+            **OpenList版本**: ${{ env.OPENLIST_VERSION }}
+            **构建时间**: ${{ env.RELEASE_TITLE }}
+            
+          draft: false
+          prerelease: false
+          files: |
+            openlib/*.tar.gz
+            openlib/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
